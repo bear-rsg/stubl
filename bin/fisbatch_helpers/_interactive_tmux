@@ -1,0 +1,16 @@
+#!/bin/sh
+# -*- coding: utf-8 -*-
+# Author: Pär Andersson  (National Supercomputer Centre, Sweden)
+# Version: 0.2 2007-07-30
+#
+# Simple batch script that starts SCREEN.
+#SBATCH --get-user-env
+#SBATCH --export=NONE
+unset SLURM_EXPORT_ENV
+set -x
+tmux new-session -d -s slurm$SLURM_JOB_ID
+while tmux list-sessions; do
+	sleep 5
+done
+
+

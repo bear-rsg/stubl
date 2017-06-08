@@ -14,8 +14,8 @@
 #   than leave users waiting on resources that are not available
 #   and likely won't be available for some time.
 #
-# This will submit a batch script that starts screen on a node.
-# Then ssh is used to connect to the node and attach the screen.
+# This will submit a batch script that starts tmux on a node.
+# Then ssh is used to connect to the node and attach the tmux.
 # The result is very similar to an interactive shell in PBS
 # (qsub -I)
 #
@@ -74,10 +74,10 @@ fi
 # Location of helper scripts
 MYDIR=$STUBL_HOME/bin/fisbatch_helpers
 
-# Batch Script that starts SCREEN
-BS=$MYDIR/_interactive
-# Interactive screen script
-IS=$MYDIR/_interactive_screen
+# Batch Script that starts tmux
+BS=$MYDIR/_interactive_tmux
+# Interactive xsession script
+IS=$MYDIR/_interactive_tmux_xsession
 
 cluster=`echo $@ | tr ' ' '\n' | grep "\-\-clusters=" | cut -d'=' -f2`
 if [ "$cluster" == "" ]; then
@@ -97,7 +97,13 @@ if [[ -z ${JOB} ]] || [[ ${JOB} -eq 0 ]]; then
 fi
 
 # Make sure the job is always canceled
-trap "{ log 'Cancelling job'; $STUBL_SCANCEL $JOB 2>/dev/null; exit; }" SIGINT SIGTERM EXIT
+function cleanup () {
+	log 'Cancelling job ${JOB}'; 
+        test -e slurm-${JOB}.out && log "See slurm-${JOB}.out for details"
+	$STUBL_SCANCEL $JOB 2>/dev/null
+}
+
+trap cleanup SIGINT SIGTERM EXIT
 
 log "Waiting for JOBID $JOB to start"
 while true; do
@@ -108,11 +114,11 @@ while true; do
 
     if [[ "$STATUS" = "R" ]];then
 	# Job is running, break the while loop
+	echo
         log "Job ${JOB} is running"
 	break
     elif [[ -z $STATUS ]] ; then
         error "\nJob seems to have failed"
-        test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
         exit 2
     elif [[ "$STATUS" != "PD" ]];then
 	error "Job is not Running or Pending. Aborting"
@@ -131,7 +137,7 @@ NODE=$(scontrol show jobid=${JOB} | egrep -o "NodeList=([a-z0-9]+)" | awk -F '='
 log "Job is running on ${NODE}"
 
 for i in $NODE; do
-   screenTest=$(ssh $i "ps -ef | grep $usr | grep \[S\]CREEN | wc -l" 2>/dev/null)
+   screenTest=$(ssh $i "ps -ef | grep $usr | grep \[t\]mux | wc -l" 2>/dev/null)
    if [[ "$screenTest" != "0" ]]; then
       HNODE=$i
       break
@@ -139,8 +145,7 @@ for i in $NODE; do
 done
 
 if [ "$HNODE" == "" ]; then
-  error "Couldn't identify the head node - SCREEN not running on any node!"
-  test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
+  error "Couldn't identify the head node - tmux is not running on any node!"
   exit
 fi
 
@@ -148,7 +153,7 @@ log "Connecting to head node ($HNODE)"
 # a brief pause is needed?
 sleep 1s
 
-# SSH to the node and attach the screen
+# SSH to the node and attach the tmux
 ssh -X -t $HNODE $IS slurm$JOB
 
 # The trap will now cancel the job before exiting.
