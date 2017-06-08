@@ -36,6 +36,13 @@ if [ "$1" == "--help" ]; then
   exit
 fi
 
+function log () {
+    echo -e "\e[92m[info] $@\e[0m"
+}
+function error () {
+    echo -e "\e[91m[error] $@\e[0m"
+}
+
 # determine STUBL install location
 # Copied from Apache Ant:
 # https://git-wip-us.apache.org/repos/asf?p=ant.git;a=blob;f=src/script/ant;h=b5ed5be6a8fe3a08d26dea53ea0fb3f5fab45e3f
@@ -77,118 +84,67 @@ if [ "$cluster" == "" ]; then
   cluster=$STUBL_DEFAULT_CLUSTER
 fi
 
-# make sure the cluster exists
-nclus=`squeue --clusters=$cluster 2>&1 | grep 'No cluster' | wc -l`
-if [ "$nclus" != "0" ]; then
-  echo "There are no clusters named ${cluster}!"
-  exit 1
-fi
-if [ "$cluster" == "all" ]; then
-  echo "fisbatch does not support --clusters=all!"
-  exit 1
-fi
-
-
-partition=`echo $@ | tr ' ' '\n' | grep "\-\-partition=" | cut -d'=' -f2`
-if [ "$partition" == "" ]; then
-  partition=$STUBL_DEFAULT_PARTITION
-fi
-
-# make sure the partition exists
-npart1=`snodes all ${cluster}/all | grep " ${partition} " | wc -l`
-npart2=`snodes all ${cluster}/all | grep " ${partition}\* " | wc -l`
-if [ "$npart1" == "0" -a "$npart2" == "0" ]; then
-  echo "There are no partitions named ${partition} in the ${cluster} cluster!"
-  exit 1
-fi
-
-# assign qos
-ARGS="$@"
-qos=`echo $@ | tr ' ' '\n' | grep "\-\-qos=" | cut -d'=' -f2`
-if [ "$qos" == "" ]; then
-  # the default qos is the partition, add it to the args
-  qos=$partition
-  ARGS="$@ --qos=$qos"
-fi
-
-# check for node maintenance
-c1=`snodes all ${cluster}/${partition} | wc -l`
-c1=`expr $c1 - 1`
-d1=`snodes all ${cluster}/${partition} | grep down | wc -l`
-c2=`snodes all ${cluster}/${partition} | grep maint | wc -l`
-c3=`expr $d1 + $c2`
-#echo "Total number of nodes in ${cluster}/${partition} = $c1"
-#echo "Number of nodes in ${cluster}/${partition} that are under maintenance = $c2"
-#echo "Number of nodes in  ${cluster}/${partition} that are down = $d1"
-if [ "$c1" == "$c3" ]; then
-  echo "All nodes in  ${cluster}/${partition} are down or undergoing maintenance!"
-  exit
-fi
-
 # Submit the job and get the job id
 MyExport=SLURM_CPUS_PER_TASK,SLURM_JOB_NAME,SLURM_NTASKS_PER_NODE,SLURM_PRIO_PROCESS,SLURM_SUBMIT_DIR,SLURM_SUBMIT_HOST
-#JOB=`sbatch --export=$MyExport --job-name=FISBATCH --output=/dev/null --error=/dev/null $@ $BS 2>&1 | egrep -o -e "\b[0-9]+$"`
-#JOB=`sbatch --export=$MyExport --job-name=FISBATCH --output=/dev/null --error=/dev/null $@ $BS 2>&1 | egrep -o -e "\b[0-9]+"`
-#JOB=`sbatch --job-name=FISBATCH --output=/dev/null --error=/dev/null $@ $BS 2>&1 | egrep -o -e "\b[0-9]+"`
-JOB=`sbatch --job-name=FISBATCH --output=/dev/null --error=/dev/null $ARGS $BS 2>&1 | egrep -o -e "\b[0-9]+"`
-JOB=`echo $JOB | awk '{ printf("%d", $1 + 0); }'`
+SBATCH_OUT="$(sbatch --job-name=FISBATCH $@ $BS 2>&1)"
+JOB=$(echo ${SBATCH_OUT} | egrep -o -e "\b[0-9]+")
+JOB=$(echo $JOB | awk '{ printf("%d", $1 + 0); }')
+
+if [[ -z ${JOB} ]] || [[ ${JOB} -eq 0 ]]; then
+    error "Couldn't find job id"
+    error "Slurm said: ${SBATCH_OUT}"
+    exit 2
+fi
 
 # Make sure the job is always canceled
-trap "{ $STUBL_SCANCEL --clusters=$cluster --partition=$partition $JOB 2>/dev/null; exit; }" SIGINT SIGTERM EXIT
+trap "{ log 'Cancelling job'; $STUBL_SCANCEL $JOB 2>/dev/null; exit; }" SIGINT SIGTERM EXIT
 
-echo "FISBATCH -- waiting for JOBID $JOB to start on cluster=$cluster and partition=$partition"
+log "Waiting for JOBID $JOB to start"
 while true; do
     sleep 1s
 
     # Check job status
-    STATUS=`squeue --clusters=$cluster --partition=$partition -j $JOB -t PD,R -h -o %t | grep -v "^CLUSTER"`
+    STATUS=$(squeue -j $JOB -t PD,R -h -o %t | grep -v "^CLUSTER")
 
-    if [ "$STATUS" = "R" ];then
+    if [[ "$STATUS" = "R" ]];then
 	# Job is running, break the while loop
-        echo "!"
-        sleep 1s
+        log "Job ${JOB} is running"
 	break
-    elif [ "$STATUS" != "PD" ];then
-        echo "!"
-	echo "Job is not Running or Pending. Aborting"
-        scancel --clusters=$cluster --partition=$partition $JOB 2>/dev/null
-        echo "FISBATCH -- aborting job ($JOB)"
-	exit 1
+    elif [[ -z $STATUS ]] ; then
+        error "\nJob seems to have failed"
+        test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
+        exit 2
+    elif [[ "$STATUS" != "PD" ]];then
+	error "Job is not Running or Pending. Aborting"
+	exit 3
     fi
 
+    sleep 1s
     echo -n "."
 done
 
 # Determine the head node in the job:
-#NODE=`srun --jobid=$JOB -N1 hostname`
 HNODE=""
 usr=`whoami`
-NODE=`squeue -h --clusters=${cluster} --partition=${partition} --jobs=${JOB} -o %N | grep -v "^CLUSTER"`
+NODE=$(scontrol show jobid=${JOB} | egrep -o "NodeList=([a-z0-9]+)" | awk -F '=' '{print $2}')
 
-# unset python environment before running nodeset and then restore it, see RT#21322
-PYHOME=$PYTHONHOME
-PYPATH=$PYTHONPATH
-unset PYTHONHOME
-unset PYTHONPATH
-  NODE=`nodeset -e $NODE`
-export PYTHONPATH=$PYPATH
-export PYTHONHOME=$PYHOME
+log "Job is running on ${NODE}"
 
 for i in $NODE; do
-   screenTest=`ssh $i "ps -ef | grep $usr | grep \[S\]CREEN | wc -l"`
-   if [ "$screenTest" != "0" ]; then
+   screenTest=$(ssh $i "ps -ef | grep $usr | grep \[S\]CREEN | wc -l" 2>/dev/null)
+   if [[ "$screenTest" != "0" ]]; then
       HNODE=$i
       break
    fi
 done
 
 if [ "$HNODE" == "" ]; then
-  echo "Couldn't identify the head node - SCREEN not running on any node!"
-  echo "FISBATCH -- aborting job"
+  error "Couldn't identify the head node - SCREEN not running on any node!"
+  test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
   exit
 fi
 
-echo "FISBATCH -- Connecting to head node ($HNODE)"
+log "Connecting to head node ($HNODE)"
 # a brief pause is needed?
 sleep 1s
 
@@ -196,5 +152,3 @@ sleep 1s
 ssh -X -t $HNODE $IS slurm$JOB
 
 # The trap will now cancel the job before exiting.
-echo "FISBATCH -- exiting job"
-
