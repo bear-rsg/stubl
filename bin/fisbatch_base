@@ -119,29 +119,34 @@ function cleanup () {
 trap cleanup SIGINT SIGTERM EXIT
 
 log "Waiting for JOBID $JOB to start"
+zero_count=0
 while true; do
     sleep 1s
 
     # Check job status
     STATUS=$(squeue -j $JOB -t PD,R -h -o %t | grep -v "^CLUSTER")
-
     if [[ "$STATUS" = "R" ]];then
-    # Job is running, break the while loop
-    echo
-        log "Job ${JOB} is running"
-    break
+        # Job is running, break the while loop
+        echo
+            log "Job ${JOB} is running"
+        break
+    elif [[ "${STATUS}" = "PD" ]]; then
+        echo -n "."
     elif [[ -z $STATUS ]] ; then
-        error "\nJob seems to have failed"
-        test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
-        exit 2
-    elif [[ "$STATUS" != "PD" ]];then
+        echo -n "-"
+        ((zero_count++))
+        if [[ ${zero_count} -gt 5 ]]; then
+            error "\nJob seems to have failed"
+            test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
+            exit 2
+        fi
+    else
         error "Job is not Running or Pending. Aborting"
         test -e slurm-${JOB}.out && error "See slurm-${JOB}.out for details"
         exit 3
     fi
 
     sleep 1s
-    echo -n "."
 done
 
 # Determine the head node in the job:
