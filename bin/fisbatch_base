@@ -49,6 +49,11 @@ function error () {
     echo -e "\e[91m[error] $@\e[0m"
 }
 
+if [[ -n ${FISBATCH_DEBUG} ]] && [[ ${FISBATCH_DEBUG} -eq 1 ]]; then
+    log "Debug mode"
+    set -x
+fi
+
 if [[ -z ${FISBATCH_LAUNCHER_SCRIPT} ]]; then
     error "FISBATCH_LAUNCHER_SCRIPT is not defined"
     exit 88
@@ -156,7 +161,7 @@ NODE=$(scontrol show jobid=${JOB} | egrep -o "NodeList=([a-z0-9]+)" | awk -F '='
 
 log "Job is running on ${NODE}"
 
-for i in {1..10}; do
+for i in {1..1000}; do
     for i in $NODE; do
        screenTest=$(ssh $i "ps -u $usr -ef | grep ${FISBATCH_CHECK_REGEX} | wc -l" 2>/dev/null)
        if [[ "$screenTest" != "0" ]]; then
