@@ -48,9 +48,14 @@ function log () {
 function error () {
     echo -e "\e[91m[error] $@\e[0m"
 }
+function debug() {
+    if [[ -n ${FISBATCH_DEBUG} ]] && [[ ${FISBATCH_DEBUG} -eq 1 ]]; then
+        echo -e "\e[93m[debug] $@\e[0m"
+    fi
+}
 
 if [[ -n ${FISBATCH_DEBUG} ]] && [[ ${FISBATCH_DEBUG} -eq 1 ]]; then
-    log "Debug mode"
+    debug "Debug mode"
     set -x
 fi
 
@@ -156,8 +161,11 @@ done
 
 # Determine the head node in the job:
 HNODE=""
-usr=`whoami`
-NODE=$(scontrol show jobid=${JOB} | egrep -o "NodeList=([a-z0-9]+)" | awk -F '=' '{print $2}')
+usr=$(whoami)
+job_details=$(scontrol show jobid=${JOB})
+debug "${job_details}"
+#NODE=$(echo "${job_details}" | egrep -o "NodeList=([a-z0-9]+)" | awk -F '=' '{print $2}')
+NODE=$(echo "${job_details}" | egrep -o "BatchHost=([a-z0-9]+)" | awk -F '=' '{print $2}')
 
 log "Job is running on ${NODE}"
 
