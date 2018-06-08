@@ -165,7 +165,7 @@ usr=$(whoami)
 job_details=$(scontrol show jobid=${JOB})
 debug "${job_details}"
 #NODE=$(echo "${job_details}" | egrep -o "NodeList=([a-z0-9]+)" | awk -F '=' '{print $2}')
-NODE=$(echo "${job_details}" | egrep -o "BatchHost=([a-z0-9]+)" | awk -F '=' '{print $2}')
+NODE=$(echo "${job_details}" | egrep -o "BatchHost=([-a-z0-9]+)" | awk -F '=' '{print $2}')
 
 log "Job is running on ${NODE}"
 
