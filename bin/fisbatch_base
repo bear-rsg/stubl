@@ -72,7 +72,7 @@ if [[ -z ${FISBATCH_CHECK_REGEX} ]]; then
     exit 88
 fi
 if [[ -n "$SLURM_JOB_ID" ]]; then
-    error "You are already inside an interactive jobs"
+    error "You are already inside an interactive job"
     exit 88
 fi
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASEDIR="/rds/bear-apps/system/software/slurm-interactive-jobs/stubl/bin/"
+BASEDIR="/rds/bear-apps/system/software/slurm-interactive-jobs/stubl/"
 
 echo "Clearing out old ${BASEDIR}/bin and installing new files"
 
