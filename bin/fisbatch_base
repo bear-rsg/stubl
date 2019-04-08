@@ -71,6 +71,10 @@ if [[ -z ${FISBATCH_CHECK_REGEX} ]]; then
     error "FISBATCH_CHECK_REGEX is not defined"
     exit 88
 fi
+if [[ -n "$SLURM_JOB_ID" ]]; then
+    error "You should not nest interactive jobs"
+    exit 88
+fi
 
 # determine STUBL install location
 # Copied from Apache Ant:

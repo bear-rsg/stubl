@@ -1,14 +1,16 @@
 #!/bin/bash
 
-echo "Clearing out old /gpfs/sysapps/slurm-interactive-jobs/stubl/bin and installing new files"
+BASEDIR="/rds/bear-apps/system/software/slurm-interactive-jobs/stubl/bin/"
 
-rm -rf /gpfs/sysapps/slurm-interactive-jobs/stubl/bin
+echo "Clearing out old ${BASEDIR}/bin and installing new files"
 
-mkdir -p /gpfs/sysapps/slurm-interactive-jobs/stubl/bin
-cp -r bin/fisbatch_* /gpfs/sysapps/slurm-interactive-jobs/stubl/bin/.
+rm -rf ${BASEDIR}/bin
 
-chgrp -R sysmaint-admin /gpfs/sysapps/slurm-interactive-jobs/stubl/
+mkdir -p ${BASEDIR}/bin
+cp -r bin/fisbatch_* ${BASEDIR}/bin/.
 
-chmod -R o-w /gpfs/sysapps/slurm-interactive-jobs/stubl/
-chmod -R o+rX /gpfs/sysapps/slurm-interactive-jobs/stubl/
-chmod -R g=o /gpfs/sysapps/slurm-interactive-jobs/stubl/
+chgrp -R sysmaint-admin ${BASEDIR}
+
+chmod -R o-w ${BASEDIR}
+chmod -R o+rX ${BASEDIR}
+chmod -R g=o ${BASEDIR}
