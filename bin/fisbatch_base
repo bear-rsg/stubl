@@ -175,7 +175,7 @@ log "Job is running on ${NODE}"
 
 for i in {1..1000}; do
     for i in $NODE; do
-       screenTest=$(ssh $i "ps -u $usr -ef | grep ${FISBATCH_CHECK_REGEX} | wc -l" 2>/dev/null)
+       screenTest=$(ssh $i "ps -u $usr -f | grep ${FISBATCH_CHECK_REGEX} | wc -l" 2>/dev/null)
        if [[ "$screenTest" != "0" ]]; then
           HNODE=$i
           break
