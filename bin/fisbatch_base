@@ -115,6 +115,12 @@ fi
 # Submit the job and get the job id
 MyExport=SLURM_CPUS_PER_TASK,SLURM_JOB_NAME,SLURM_NTASKS_PER_NODE,SLURM_PRIO_PROCESS,SLURM_SUBMIT_DIR,SLURM_SUBMIT_HOST
 SBATCH_OUT="$(sbatch --output=${HOME}/fisbatch-%j.out --job-name=FISBATCH $@ ${MYDIR}/${FISBATCH_LAUNCHER_SCRIPT} 2>&1)"
+if [[ $? -ne 0 ]]; then
+    echo "Non-zero exit status from sbatch"
+    echo ${SBATCH_OUT}
+    exit 3
+fi
+
 JOB=$(echo ${SBATCH_OUT} | egrep -o -e "\b[0-9]+")
 JOB=$(echo $JOB | awk '{ printf("%d", $1 + 0); }')
 
