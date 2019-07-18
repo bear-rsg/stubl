@@ -112,9 +112,14 @@ if [ "$cluster" == "" ]; then
   cluster=$STUBL_DEFAULT_CLUSTER
 fi
 
+# Create variable for directory containing output files
+FISBATCH_OUTPUT=${HOME}/fisbatch-output
+# Make the directory if it doesn't already exist
+[[ -d ${FISBATCH_OUTPUT} ]] || mkdir -p ${FISBATCH_OUTPUT}
+
 # Submit the job and get the job id
 MyExport=SLURM_CPUS_PER_TASK,SLURM_JOB_NAME,SLURM_NTASKS_PER_NODE,SLURM_PRIO_PROCESS,SLURM_SUBMIT_DIR,SLURM_SUBMIT_HOST
-SBATCH_OUT="$(sbatch --output=${HOME}/fisbatch-%j.out --job-name=FISBATCH $@ ${MYDIR}/${FISBATCH_LAUNCHER_SCRIPT} 2>&1)"
+SBATCH_OUT="$(sbatch --output=${FISBATCH_OUTPUT}/fisbatch-%j.out --job-name=FISBATCH $@ ${MYDIR}/${FISBATCH_LAUNCHER_SCRIPT} 2>&1)"
 if [[ $? -ne 0 ]]; then
     echo "Non-zero exit status from sbatch"
     echo ${SBATCH_OUT}
