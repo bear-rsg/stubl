@@ -8,6 +8,7 @@ TMUXSESSION=$1
 if [[ "${DISPLAY}" != "" ]];then
     tmux send -t ${TMUXSESSION} "unset DISPLAY" ENTER
     tmux send -t ${TMUXSESSION} "export DISPLAY=${DISPLAY}" ENTER
+    tmux send -t ${TMUXSESSION} "export HOME=${HOME}" ENTER
 fi
 
 tmux attach -t ${TMUXSESSION}

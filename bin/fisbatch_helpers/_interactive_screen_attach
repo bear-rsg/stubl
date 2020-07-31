@@ -10,6 +10,7 @@ SCREENSESSION=$1
 if [ "$DISPLAY" != "" ];then
     screen -S $SCREENSESSION -X unsetenv DISPLAY
     screen -p0 -S $SCREENSESSION -X setenv DISPLAY $DISPLAY
+    screen -p0 -S $SCREENSESSION -X export HOME=${HOME}
     screen -p0 -S $SCREENSESSION -X screen
     screen -p0 -S $SCREENSESSION -X kill
 fi
