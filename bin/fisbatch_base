@@ -137,8 +137,9 @@ fi
 
 # Make sure the job is always canceled
 function cleanup () {
-    log 'Cancelling job'
+    log "Cancelling job $JOB"
     $STUBL_SCANCEL $JOB 2>/dev/null
+    exit 1
 }
 
 trap cleanup SIGINT SIGTERM EXIT
